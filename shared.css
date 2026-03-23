@@ -1349,6 +1349,13 @@ img {
     .review-popup-stars { font-size: 1.1rem; }
 }
 
+@media (max-width: 1024px) {
+    .review-popup { width: 280px; padding: 14px 18px; }
+    .review-popup-name { font-size: 0.9rem; }
+    .review-popup-text { font-size: 0.82rem; }
+    .review-popup-stars { font-size: 0.82rem; }
+}
+
 @media (max-width: 768px) {
     .review-popup-container {
         bottom: 20px;
@@ -1361,11 +1368,24 @@ img {
 
     .review-popup {
         width: 100%;
-        max-width: 400px;
-        padding: 14px 18px;
+        max-width: 260px;
+        padding: 12px 16px;
         box-shadow: 0 8px 24px rgba(44, 24, 16, 0.15); /* Slightly stronger shadow for mobile visibility */
     }
     .review-popup-name { font-size: 0.85rem; }
-    .review-popup-text { font-size: 0.8rem; }
-    .review-popup-stars { font-size: 0.8rem; }
+    .review-popup-text { font-size: 0.78rem; }
+    .review-popup-stars { font-size: 0.78rem; }
+}
+
+@media (max-width: 480px) {
+    .review-popup {
+        max-width: 240px; 
+        padding: 12px 14px;
+    }
+    .review-popup-header {
+        margin-bottom: 4px;
+    }
+    .review-popup-name { font-size: 0.8rem; }
+    .review-popup-text { font-size: 0.75rem; }
+    .review-popup-stars { font-size: 0.75rem; }
 }

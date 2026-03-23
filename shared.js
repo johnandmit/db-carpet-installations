@@ -82,8 +82,8 @@ function showReviewPopup() {
     container.appendChild(popup);
 
     // To stack reviews, they need to stay on screen long enough for the next one to appear.
-    // If intervals are every 10s, we keep them for (maxPopups * 10s - 1s) to allow maxPopups on screen.
-    const displayTime = (maxPopups * 10000) - 1000; 
+    // If intervals are every 3.5s, we keep them for (maxPopups * 3.5s - 0.4s) to allow maxPopups on screen.
+    const displayTime = (maxPopups * 3500) - 400; 
     setTimeout(() => {
         if (popup.parentElement && !popup.classList.contains('removing')) {
             removePopup(popup);
@@ -100,12 +100,11 @@ function removePopup(popup) {
     }, 400); // 400ms matches CSS transition
 }
 
-// Start sequence (delay first popup slightly, then every 10s)
+// Start sequence (delay first popup slightly, then every 3.5s)
 setTimeout(() => {
     // Show the first one immediately
     showReviewPopup();
     
-    // On larger screens, optionally show a second one sooner so it doesn't look empty for too long,
-    // or just rely on the standard 10s interval. We'll use the interval.
-    setInterval(showReviewPopup, 10000);
+    // Continue showing a new one every 3.5s
+    setInterval(showReviewPopup, 3500);
 }, 2000);

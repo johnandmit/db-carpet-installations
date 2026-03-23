@@ -29,17 +29,17 @@ window.addEventListener('scroll', () => {
 });
 
 // Review Popups Logic
-const reviewMockData = [
-    { name: "Mike Mead", stars: "★★★★★", text: "\"David was prompt and friendly. His workmanship was top quality, and the pricing was fair.\"" },
-    { name: "M Y", stars: "★★★★★", text: "\"I was referred to DB Carpet Installations, and I'm very pleased with the service I received.\"" },
-    { name: "Lauren B.", stars: "★★★★★", text: "\"The service was absolutely amazing! David was incredibly helpful throughout the whole process.\"" },
-    { name: "Mel Abbott", stars: "★★★★★", text: "\"David was very helpful. Great to deal with.\"" },
-    { name: "Candice", stars: "★★★★★", text: "\"David was fantastic! Super professional, friendly, and the results look great.\"" },
-    { name: "Jessica B.", stars: "★★★★★", text: "\"Communication was excellent throughout, from coordinating the job to picking up the carpet.\"" },
-    { name: "Kimberley B.", stars: "★★★★★", text: "\"David did an awesome job of our carpet repair! Very reasonably priced, great communication.\"" },
-    { name: "MissChloe Kim", stars: "★★★★★", text: "\"Unbelievably more affordable than the usual well known carpet companies.\"" },
-    { name: "David M", stars: "★★★★★", text: "\"David and his crew were extremely helpful. Communication was fantastic. Highly recommend.\"" },
-    { name: "Angelique K.", stars: "★★★★★", text: "\"They have done an amazing job, so fast and efficient!\"" }
+const realReviewsData = [
+    { name: "Mike Mead", stars: "★★★★★", text: "\"The service was very prompt and friendly from start to finish, the workmanship was top quality, and the pricing was fair and transparent.\"" },
+    { name: "M Y", stars: "★★★★★", text: "\"The team arrived on time and got straight to work. The carpet repairs were completed with exemplary workmanship.\"" },
+    { name: "Lauren Bezuidenhout", stars: "★★★★★", text: "\"We had all our downstairs carpets replaced and the service was absolutely amazing! David was incredibly helpful throughout the whole process.\"" },
+    { name: "Mel Abbott", stars: "★★★★★", text: "\"I had a small job of putting a couple of corners of carpet back down. David was very helpful, fitted me in... Great to deal with.\"" },
+    { name: "Candice", stars: "★★★★★", text: "\"David was fantastic! He handled everything himself and did an amazing job with the carpet. Super professional, friendly.\"" },
+    { name: "Jessica Broun", stars: "★★★★★", text: "\"David's communication was excellent throughout. He couldn’t have been more helpful, and the workmanship is excellent.\"" },
+    { name: "Angelique Kruger", stars: "★★★★★", text: "\"They have done an amazing job installing our carpets, so fast and efficient! Friendly and professional. They absolutely know their stuff!\"" },
+    { name: "Kimberley Bell", stars: "★★★★★", text: "\"David did an awesome job of our carpet repair! Very reasonably priced, great communication, and appreciated his attention to detail.\"" },
+    { name: "MissChloe Kim", stars: "★★★★★", text: "\"I couldn’t be happier with the result and the price. His quote was unbelievably more affordable than the usual well known carpet companies.\"" },
+    { name: "David M", stars: "★★★★★", text: "\"David and his crew were extremely helpful and the quality of their work was exceptional. Their communication was fantastic too.\"" }
 ];
 
 function showReviewPopup() {
@@ -62,12 +62,12 @@ function showReviewPopup() {
     // Check current popups count, remove oldest if at max
     const currentPopups = container.querySelectorAll('.review-popup:not(.removing)');
     if (currentPopups.length >= maxPopups) {
-        const oldestPopup = currentPopups[0]; // Gets the first one in the DOM (oldest since appendChild adds to end)
+        const oldestPopup = currentPopups[0];
         removePopup(oldestPopup);
     }
 
     // Create new popup
-    const review = reviewMockData[Math.floor(Math.random() * reviewMockData.length)];
+    const review = realReviewsData[Math.floor(Math.random() * realReviewsData.length)];
     const popup = document.createElement('div');
     popup.className = 'review-popup';
     
@@ -81,17 +81,18 @@ function showReviewPopup() {
 
     container.appendChild(popup);
 
-    // Auto remove after 8 seconds
+    // To stack reviews, they need to stay on screen long enough for the next one to appear.
+    // If intervals are every 10s, we keep them for (maxPopups * 10s - 1s) to allow maxPopups on screen.
+    const displayTime = (maxPopups * 10000) - 1000; 
     setTimeout(() => {
         if (popup.parentElement && !popup.classList.contains('removing')) {
             removePopup(popup);
         }
-    }, 8000);
+    }, displayTime);
 }
 
 function removePopup(popup) {
     popup.classList.add('removing');
-    // Wait for transition to finish before removing from DOM
     setTimeout(() => {
         if (popup.parentElement) {
             popup.remove();
@@ -101,6 +102,10 @@ function removePopup(popup) {
 
 // Start sequence (delay first popup slightly, then every 10s)
 setTimeout(() => {
+    // Show the first one immediately
     showReviewPopup();
+    
+    // On larger screens, optionally show a second one sooner so it doesn't look empty for too long,
+    // or just rely on the standard 10s interval. We'll use the interval.
     setInterval(showReviewPopup, 10000);
 }, 2000);

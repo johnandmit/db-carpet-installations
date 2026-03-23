@@ -38,6 +38,7 @@ body {
     color: var(--color-text);
     font-family: var(--font-body);
     line-height: 1.7;
+    overflow-x: hidden;
 }
 
 a {
@@ -1359,8 +1360,8 @@ img {
 @media (max-width: 768px) {
     .review-popup-container {
         bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
+        left: 0;
+        right: 0;
         width: 100%;
         padding: 0 20px;
         align-items: center;

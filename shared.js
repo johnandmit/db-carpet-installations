@@ -115,21 +115,33 @@ document.addEventListener('DOMContentLoaded', () => {
         <!-- Floating Button -->
         <div id="chatBtn" onclick="openChat()">
             <svg viewBox="0 0 24 24"><path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H5.17L4 17.17V4H20V16Z"/><path d="M7 9H9V11H7zM11 9H13V11H11zM15 9H17V11H15z"/></svg>
+            <span class="chat-btn-badge"></span>
         </div>
         <!-- Full Page Chat UI -->
         <div id="chatView">
-            <header class="chat-header">
-                <div class="header-left">
-                    <div class="header-icon"><svg viewBox="0 0 24 24"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg></div>
-                    <div><div class="header-title">David's Carpet Cleaning</div><div class="header-status"><div class="status-dot"></div> Online now</div></div>
+            <div class="chat-bg-scene">
+                <div class="chat-bg-image"></div>
+            </div>
+            <div class="chat-wrapper">
+                <div class="chat-shell">
+                    <header class="chat-header">
+                        <div class="header-left">
+                            <div class="header-avatar">🏠</div>
+                            <div class="header-info">
+                                <div class="header-title">David's Carpet Cleaning</div>
+                                <div class="header-status"><span class="status-dot"></span> Online now</div>
+                            </div>
+                        </div>
+                        <button class="close-btn" onclick="closeChat()"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+                    </header>
+                    <main class="chat-body" id="chatBody"></main>
+                    <div class="chat-divider"></div>
+                    <footer class="chat-footer">
+                        <input type="text" id="chatInput" placeholder="Type a message…" onkeypress="handleEnter(event)">
+                        <button id="sendBtn" onclick="handleSend()"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+                    </footer>
                 </div>
-                <button class="close-btn" onclick="closeChat()"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
-            </header>
-            <main class="chat-body" id="chatBody"></main>
-            <footer class="chat-footer">
-                <input type="text" id="chatInput" placeholder="Type a message..." onkeypress="handleEnter(event)">
-                <button id="sendBtn" onclick="handleSend()"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
-            </footer>
+            </div>
         </div>
     `);
 
@@ -157,17 +169,19 @@ window.getTimestamp = function() {
 
 window.openChat = function() {
     document.getElementById('chatBtn').style.display = 'none';
-    document.getElementById('chatView').style.display = 'flex';
-    setTimeout(() => document.getElementById('chatView').classList.add('active'), 10);
+    const cv = document.getElementById('chatView');
+    cv.style.display = 'flex';
+    setTimeout(() => cv.classList.add('active'), 10);
     if (window.isFirstLoad) { window.isFirstLoad = false; initChat(); }
 }
 
 window.closeChat = function() {
-    document.getElementById('chatView').classList.remove('active');
+    const cv = document.getElementById('chatView');
+    cv.classList.remove('active');
     setTimeout(() => {
-        document.getElementById('chatView').style.display = 'none';
+        cv.style.display = 'none';
         document.getElementById('chatBtn').style.display = 'flex';
-    }, 300);
+    }, 350);
 }
 
 window.scrollToBottom = function() {
@@ -444,3 +458,243 @@ window.initChat = function() {
         });
     }, 800);
 }
+
+/* ═══════════════ CARPET ROLLER CANVAS EFFECT ═══════════════ */
+(function() {
+    // Skip on touch/mobile devices
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return;
+    if (window.matchMedia('(max-width: 768px)').matches) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.id = 'carpet-canvas';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    let W, H;
+    let segments = [];   // carpet trail segments
+    let shimmers = [];   // sparkle particles
+    let mouseX = -200, mouseY = -200;
+    let lastX = null, lastY = null;
+    let angle = 0;
+
+    function resize() {
+        W = canvas.width = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Colors
+    const CARPET_DARK = '#6b1520';
+    const CARPET_MID  = '#8b2030';
+    const CARPET_LIGHT = '#a83040';
+    const CARPET_GOLD = '#c49a6c';
+
+    // Diamond pattern offcanvas buffer
+    const patW = 24, patH = 24;
+    const patCanvas = document.createElement('canvas');
+    patCanvas.width = patW; patCanvas.height = patH;
+    const patCtx = patCanvas.getContext('2d');
+    // Fill base
+    patCtx.fillStyle = CARPET_MID;
+    patCtx.fillRect(0, 0, patW, patH);
+    // Diamond shapes
+    patCtx.fillStyle = CARPET_DARK;
+    patCtx.beginPath();
+    patCtx.moveTo(patW/2, 2); patCtx.lineTo(patW-2, patH/2);
+    patCtx.lineTo(patW/2, patH-2); patCtx.lineTo(2, patH/2);
+    patCtx.closePath(); patCtx.fill();
+    // Inner diamond
+    patCtx.fillStyle = CARPET_LIGHT;
+    patCtx.beginPath();
+    patCtx.moveTo(patW/2, 6); patCtx.lineTo(patW-6, patH/2);
+    patCtx.lineTo(patW/2, patH-6); patCtx.lineTo(6, patH/2);
+    patCtx.closePath(); patCtx.fill();
+    // Center dot
+    patCtx.fillStyle = CARPET_GOLD;
+    patCtx.beginPath();
+    patCtx.arc(patW/2, patH/2, 2, 0, Math.PI * 2);
+    patCtx.fill();
+    // Corner accents
+    patCtx.fillStyle = CARPET_GOLD;
+    [0, patW].forEach(x => [0, patH].forEach(y => {
+        patCtx.beginPath(); patCtx.arc(x, y, 1.5, 0, Math.PI*2); patCtx.fill();
+    }));
+    const carpetPattern = ctx.createPattern(patCanvas, 'repeat');
+
+    // Trail segment class
+    class CarpetSegment {
+        constructor(x, y, ang, w) {
+            this.x = x; this.y = y;
+            this.angle = ang;
+            this.w = w; this.h = 30;
+            this.life = 1.0;
+            this.decay = 0.012; // ~1.5s
+            this.born = performance.now();
+        }
+        update() { this.life -= this.decay; }
+        draw(ctx) {
+            if (this.life <= 0) return;
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.angle);
+            ctx.globalAlpha = this.life * 0.7;
+            ctx.fillStyle = carpetPattern;
+            const r = 4;
+            const hw = this.w / 2, hh = this.h / 2;
+            ctx.beginPath();
+            ctx.moveTo(-hw + r, -hh);
+            ctx.lineTo(hw - r, -hh);
+            ctx.quadraticCurveTo(hw, -hh, hw, -hh + r);
+            ctx.lineTo(hw, hh - r);
+            ctx.quadraticCurveTo(hw, hh, hw - r, hh);
+            ctx.lineTo(-hw + r, hh);
+            ctx.quadraticCurveTo(-hw, hh, -hw, hh - r);
+            ctx.lineTo(-hw, -hh + r);
+            ctx.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+            ctx.closePath();
+            ctx.fill();
+            // Subtle border
+            ctx.strokeStyle = `rgba(107, 21, 32, ${0.3 * this.life})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    // Shimmer particle
+    class Shimmer {
+        constructor(x, y) {
+            this.x = x + (Math.random() - 0.5) * 30;
+            this.y = y + (Math.random() - 0.5) * 30;
+            this.size = Math.random() * 2.5 + 1;
+            this.life = 1.0;
+            this.decay = Math.random() * 0.03 + 0.02;
+            this.brightness = Math.random() * 0.5 + 0.5;
+        }
+        update() { this.life -= this.decay; }
+        draw(ctx) {
+            if (this.life <= 0) return;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(212, 168, 67, ${this.brightness * this.life * 0.6})`;
+            ctx.fill();
+        }
+    }
+
+    // Draw roller icon
+    function drawRoller(ctx, x, y, ang) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(ang);
+
+        // Handle
+        ctx.strokeStyle = '#8B7355';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(0, 12);
+        ctx.lineTo(0, 30);
+        ctx.stroke();
+        // Handle grip
+        ctx.strokeStyle = '#5a4e45';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(0, 26);
+        ctx.lineTo(0, 34);
+        ctx.stroke();
+
+        // Roller cylinder
+        const rw = 22, rh = 12;
+        ctx.fillStyle = '#a83040';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rw/2, rh/2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#6b1520';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Roller highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.beginPath();
+        ctx.ellipse(0, -2, rw/2 - 3, rh/2 - 3, 0, Math.PI, Math.PI * 2);
+        ctx.fill();
+        // Roller texture lines
+        ctx.strokeStyle = 'rgba(107, 21, 32, 0.4)';
+        ctx.lineWidth = 0.5;
+        for (let i = -8; i <= 8; i += 4) {
+            ctx.beginPath();
+            ctx.moveTo(i, -rh/2 + 1);
+            ctx.lineTo(i, rh/2 - 1);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
+    // Mouse tracking
+    window.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+
+        if (lastX !== null && lastY !== null) {
+            const dx = mouseX - lastX;
+            const dy = mouseY - lastY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > 6) {
+                angle = Math.atan2(dy, dx) + Math.PI / 2;
+
+                // Stamp carpet segments along the path
+                const steps = Math.max(1, Math.floor(dist / 10));
+                for (let i = 0; i < steps; i++) {
+                    const t = i / steps;
+                    const sx = lastX + dx * t;
+                    const sy = lastY + dy * t;
+                    segments.push(new CarpetSegment(sx, sy, angle, 28 + Math.random() * 4));
+                    // Shimmer particles
+                    if (Math.random() < 0.4) {
+                        shimmers.push(new Shimmer(sx, sy));
+                    }
+                }
+            }
+        }
+        lastX = mouseX;
+        lastY = mouseY;
+    });
+
+    window.addEventListener('mouseleave', () => {
+        lastX = null; lastY = null;
+        mouseX = -200; mouseY = -200;
+    });
+
+    // Animation loop
+    function animate() {
+        ctx.clearRect(0, 0, W, H);
+
+        // Draw and update carpet trail
+        for (let i = segments.length - 1; i >= 0; i--) {
+            segments[i].update();
+            segments[i].draw(ctx);
+            if (segments[i].life <= 0) segments.splice(i, 1);
+        }
+
+        // Draw and update shimmers
+        for (let i = shimmers.length - 1; i >= 0; i--) {
+            shimmers[i].update();
+            shimmers[i].draw(ctx);
+            if (shimmers[i].life <= 0) shimmers.splice(i, 1);
+        }
+
+        // Draw roller at cursor
+        if (mouseX > 0 && mouseY > 0) {
+            drawRoller(ctx, mouseX, mouseY, angle);
+        }
+
+        // Cap arrays to prevent memory issues
+        if (segments.length > 500) segments.splice(0, segments.length - 500);
+        if (shimmers.length > 200) shimmers.splice(0, shimmers.length - 200);
+
+        requestAnimationFrame(animate);
+    }
+    animate();
+})();
+

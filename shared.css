@@ -1585,6 +1585,7 @@ img {
     font-size: 0.92rem; line-height: 1.55;
     color: var(--color-heading);
     word-wrap: break-word;
+    white-space: pre-wrap;
     animation: msgFadeUp 0.28s ease both;
 }
 .msg-row.bot .msg-bubble {

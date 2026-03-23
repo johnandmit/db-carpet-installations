@@ -196,13 +196,13 @@ window.addMessage = function(role, content, nodeHTML = null) {
     if (content) {
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble';
-        bubble.innerText = content;
+        bubble.textContent = content;
         row.appendChild(bubble);
     }
     if (nodeHTML) row.appendChild(nodeHTML);
     const time = document.createElement('div');
     time.className = 'msg-time';
-    time.innerText = getTimestamp();
+    time.textContent = getTimestamp();
     row.appendChild(time);
     document.getElementById('chatBody').appendChild(row);
     scrollToBottom();
@@ -212,24 +212,25 @@ window.addMessage = function(role, content, nodeHTML = null) {
 window.showSystemMsg = function(text) {
     const div = document.createElement('div');
     div.className = 'system-msg';
-    div.innerText = text;
+    div.textContent = text;
     document.getElementById('chatBody').appendChild(div);
     scrollToBottom();
 }
 
 window.typeMessage = function(row, text, callback) {
     const bubble = row.querySelector('.msg-bubble');
-    bubble.innerText = '';
+    bubble.textContent = '';
     let i = 0;
     const interval = setInterval(() => {
-        bubble.innerText += text.charAt(i);
+        bubble.textContent = text.substring(0, i + 1);
         i++;
+        scrollToBottom();
         if (i >= text.length) {
             clearInterval(interval);
             scrollToBottom();
             if (callback) callback();
         }
-    }, 20);
+    }, 18);
 }
 
 window.setTyping = function(vis) {
@@ -245,6 +246,88 @@ window.setTyping = function(vis) {
     } else {
         if(existing) existing.remove();
     }
+}
+
+// ── QUICK REPLY SYSTEM (Spotfree 2.0 style) ──
+const QUICK_ANSWERS = {
+    what_services: "David specialises in professional carpet installation, carpet repairs, restretching, and laying new carpet & vinyl. Whether it's a single room or an entire house — David's got you covered! 🏠",
+    how_long: "It depends on the job size. A single room carpet install usually takes 1–2 hours. A full house can take a full day. David will give you a more accurate timeframe after seeing your place! ⏱",
+    areas: "David services all of Auckland — from the North Shore right down to South Auckland. Drop your suburb and we can confirm! 📍"
+};
+
+window.handleQuickReply = function(action) {
+    removeQuickReplies();
+
+    if (action === 'get_quote') {
+        addToHistory('user', '💰 Get a Quote');
+        addMessage('user', '💰 Get a Quote');
+        addToHistory('system', '', 'USER_CLICKED_GET_QUOTE', {});
+        setTyping(true);
+        setTimeout(() => {
+            setTyping(false);
+            const msg = "No worries! Fill out the quick form below and we'll sort you out 😊";
+            addToHistory('assistant', msg);
+            const row = addMessage('assistant', msg);
+            typeMessage(row, msg, () => triggerUIAction('[SHOW_QUOTE_FORM]'));
+        }, 600);
+        return;
+    }
+
+    if (action === 'book') {
+        addToHistory('user', "📅 I'd like to book a visit");
+        addMessage('user', "📅 I'd like to book a visit");
+        setTyping(true);
+        setTimeout(() => {
+            setTyping(false);
+            const msg = "Awesome! Fill in your details below and David will be in touch to lock in a time 📅";
+            addToHistory('assistant', msg);
+            const row = addMessage('assistant', msg);
+            typeMessage(row, msg, () => showBookingForm());
+        }, 600);
+        return;
+    }
+
+    if (action === 'callback') {
+        addToHistory('user', "📞 I'd like to talk to David");
+        addMessage('user', "📞 I'd like to talk to David");
+        setTyping(true);
+        setTimeout(() => {
+            setTyping(false);
+            const msg = "No worries! Leave your number below and David will give you a ring when he's free 📞";
+            addToHistory('assistant', msg);
+            const row = addMessage('assistant', msg);
+            typeMessage(row, msg, () => showCallbackForm());
+        }, 600);
+        return;
+    }
+
+    // Predetermined answers — no API call needed
+    const labels = {
+        what_services: "What services do you offer?",
+        how_long: "How long does it usually take?",
+        areas: "What areas do you service?"
+    };
+    const text = labels[action] || action;
+    addToHistory('user', text);
+    addMessage('user', text);
+
+    const answer = QUICK_ANSWERS[action];
+    if (answer) {
+        setTyping(true);
+        setTimeout(() => {
+            setTyping(false);
+            addToHistory('assistant', answer);
+            const row = addMessage('assistant', answer);
+            typeMessage(row, answer);
+        }, 800);
+    } else {
+        sendUserMessage(text);
+    }
+}
+
+window.removeQuickReplies = function() {
+    const el = document.getElementById('quickReplies');
+    if (el) el.remove();
 }
 
 window.clickAction = function(btn, text, actionKey) {
@@ -269,7 +352,10 @@ window.sendUserMessage = function(text) {
 
 window.handleSend = function() {
     const text = document.getElementById('chatInput').value.trim();
-    if (text) sendUserMessage(text);
+    if (text) {
+        removeQuickReplies();
+        sendUserMessage(text);
+    }
 }
 
 window.handleEnter = function(e) {
@@ -289,7 +375,10 @@ window.processToWebhook = async function() {
     try {
         const response = await fetch(webhookUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Auth-Token': 'sf_live_7x9Kp2mWqR4vNcBd'
+            },
             body: JSON.stringify({ history: chatHistory })
         });
         if (!response.ok) throw new Error('Network error');
@@ -305,14 +394,16 @@ window.processToWebhook = async function() {
 
 window.getDemoReply = function(lastUserText) {
     const txt = (lastUserText || '').toLowerCase();
-    if (txt.includes('service')) return "We offer deep carpet cleaning, stain removal, upholstery cleaning, and flood restoration. Need to see our prices? [SHOW_QUOTE_FORM]";
-    if (txt.includes('area') || txt.includes('where')) return "We proudly service the entire Auckland region, from Rodney down to Pukekohe!";
-    return "I can certainly help you with that. Would you like to get a quote? [SHOW_QUOTE_FORM]";
+    if (txt.includes('service')) return "David offers carpet installation, repairs, restretching, and new carpet & vinyl laying. Want to get a quote?";
+    if (txt.includes('area') || txt.includes('where')) return "David services the entire Auckland region, from Rodney down to Pukekohe!";
+    if (txt.includes('price') || txt.includes('cost') || txt.includes('quote')) return "Happy to help! Fill in the quick form and we'll give you an estimate. [SHOW_QUOTE_FORM]";
+    if (txt.includes('book') || txt.includes('appointment')) return "David would love to sort you out! Let's get your details. [SHOW_BOOKING]";
+    return "I can certainly help you with that. Would you like to get a quote or book a visit? 😊";
 }
 
 window.handleBotReply = function(rawText) {
     setTyping(false);
-    const codes = ['[SHOW_QUOTE_FORM]', '[SHOW_BOOKING]', '[SHOW_WAITLIST]'];
+    const codes = ['[SHOW_QUOTE_FORM]', '[SHOW_BOOKING]', '[SHOW_WAITLIST]', '[SHOW_CALLBACK]'];
     let cleanText = String(rawText);
     let foundCodes = [];
     codes.forEach(code => {
@@ -325,9 +416,17 @@ window.handleBotReply = function(rawText) {
     if (cleanText) {
         addToHistory('assistant', cleanText);
         const row = addMessage('assistant', cleanText);
-        typeMessage(row, cleanText, () => foundCodes.forEach(code => triggerUIAction(code)));
+        typeMessage(row, cleanText, () => foundCodes.forEach(code => {
+            if (code === '[SHOW_BOOKING]') showBookingForm();
+            else if (code === '[SHOW_CALLBACK]') showCallbackForm();
+            else triggerUIAction(code);
+        }));
     } else {
-        foundCodes.forEach(code => triggerUIAction(code));
+        foundCodes.forEach(code => {
+            if (code === '[SHOW_BOOKING]') showBookingForm();
+            else if (code === '[SHOW_CALLBACK]') showCallbackForm();
+            else triggerUIAction(code);
+        });
     }
     document.getElementById('sendBtn').disabled = false;
 }
@@ -337,7 +436,7 @@ window.triggerUIAction = function(code) {
     if (code === '[SHOW_QUOTE_FORM]') {
         container.innerHTML = `
         <div class="inline-form" id="quoteForm">
-            <h4>Get a Custom Quote</h4>
+            <h4>✏️ Get a Custom Quote</h4>
             <div class="form-group"><label>Name *</label><input type="text" id="qName"></div>
             <div class="form-group"><label>Phone *</label><input type="tel" id="qPhone"></div>
             <div class="form-group"><label>Full Address *</label><input type="text" id="qAddr" placeholder="Street, Suburb, City"></div>
@@ -360,20 +459,10 @@ window.triggerUIAction = function(code) {
             </div>
             <button class="form-submit" id="qSubmit" onclick="submitQuote(this)">Submit Quote Request</button>
         </div>`;
-    } else if (code === '[SHOW_BOOKING]') {
-        container.innerHTML = `
-        <div class="inline-form">
-            <h4>Book an Appointment</h4>
-            <div class="form-group"><label>Name *</label><input type="text" id="bName"></div>
-            <div class="form-group"><label>Phone *</label><input type="tel" id="bPhone"></div>
-            <div class="form-group"><label>Address *</label><input type="text" id="bAddr"></div>
-            <div class="form-group"><label>Preferred Days</label><input type="text" id="bDays" placeholder="e.g. Wednesday mornings"></div>
-            <button class="form-submit" onclick="submitGeneric(this, 'BOOKING_REQUESTED')">Request Booking</button>
-        </div>`;
     } else if (code === '[SHOW_WAITLIST]') {
         container.innerHTML = `
         <div class="inline-form">
-            <h4>Join Waitlist</h4>
+            <h4>📋 Join Waitlist</h4>
             <div class="form-group"><label>Name *</label><input type="text" id="wName"></div>
             <div class="form-group"><label>Phone *</label><input type="tel" id="wPhone"></div>
             <button class="form-submit" onclick="submitGeneric(this, 'JOINED_WAITLIST')">Join Now</button>
@@ -381,6 +470,151 @@ window.triggerUIAction = function(code) {
     }
     addMessage('assistant', null, container);
     setTimeout(() => container.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+}
+
+// ── BOOKING FORM ──
+window.showBookingForm = function() {
+    const container = document.createElement('div');
+    container.innerHTML = `
+    <div class="inline-form" id="bookingFormCard">
+        <h4>📅 Book a Visit</h4>
+        <div class="form-group"><label>Your Name *</label><input type="text" id="bfName" placeholder="First name is fine"></div>
+        <div class="form-group"><label>Phone Number *</label><input type="tel" id="bfPhone" placeholder="e.g. 021 123 4567"></div>
+        <div class="form-group"><label>Email (optional)</label><input type="email" id="bfEmail" placeholder="your@email.co.nz"></div>
+        <div class="form-group"><label>Property Address *</label><input type="text" id="bfAddress" placeholder="e.g. 12 Queen St, Epsom"></div>
+        <div class="form-group"><label>Preferred Date *</label><input type="date" id="bfDate"></div>
+        <div class="form-group"><label>Preferred Time *</label>
+            <select id="bfTime">
+                <option value="">Select…</option>
+                <option value="morning">Morning (8am – 12pm)</option>
+                <option value="afternoon">Afternoon (12pm – 4pm)</option>
+                <option value="late_afternoon">Late Arvo (4pm – 6pm)</option>
+                <option value="flexible">I'm Flexible</option>
+            </select>
+        </div>
+        <button class="form-submit" id="bfSubmit" onclick="submitBookingForm()">Submit Booking →</button>
+    </div>`;
+    addMessage('assistant', null, container);
+    // Set min date to today
+    const dateInput = container.querySelector('#bfDate');
+    if (dateInput) dateInput.min = new Date().toISOString().split('T')[0];
+    setTimeout(() => container.scrollIntoView({ behavior: 'smooth', block: 'end' }), 100);
+}
+
+window.submitBookingForm = function() {
+    const btn = document.getElementById('bfSubmit');
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+
+    const name = document.getElementById('bfName').value.trim();
+    const phone = document.getElementById('bfPhone').value.trim();
+    const email = document.getElementById('bfEmail').value.trim();
+    const address = document.getElementById('bfAddress').value.trim();
+    const date = document.getElementById('bfDate').value;
+    const time = document.getElementById('bfTime').value;
+
+    let hasError = false;
+    if (!name) { document.getElementById('bfName').parentElement.classList.add('error'); hasError = true; }
+    if (!phone) { document.getElementById('bfPhone').parentElement.classList.add('error'); hasError = true; }
+    if (!address) { document.getElementById('bfAddress').parentElement.classList.add('error'); hasError = true; }
+    if (!date) { document.getElementById('bfDate').parentElement.classList.add('error'); hasError = true; }
+    if (!time) { document.getElementById('bfTime').parentElement.classList.add('error'); hasError = true; }
+
+    if (hasError) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Submit Booking →'; }
+        return;
+    }
+
+    const formCard = document.getElementById('bookingFormCard');
+    if (formCard) formCard.closest('.msg-row').remove();
+
+    const timeLabels = { morning: 'Morning', afternoon: 'Afternoon', late_afternoon: 'Late Arvo', flexible: 'Flexible' };
+    const summary = `Booking request:\n• Name: ${name}\n• Phone: ${phone}${email ? '\n• Email: ' + email : ''}\n• Address: ${address}\n• Date: ${date}\n• Time: ${timeLabels[time]}`;
+    addToHistory('user', summary);
+    addMessage('user', summary);
+
+    const formData = { name, phone, email, address, date, time, type: 'booking' };
+    addToHistory('system', '', 'BOOKING_SUBMITTED', formData);
+
+    // POST to chatbot log
+    fetch('https://n8n.arfquant.com/webhook-test/chatbotlog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestType: 'Book a Visit', ...formData })
+    }).catch(() => {});
+
+    // Confirmation card
+    showConfirmation('✅', 'Booking Request Sent!', 'David will be in touch within 24 hours to confirm your appointment.');
+    processToWebhook();
+}
+
+// ── CALLBACK FORM ──
+window.showCallbackForm = function() {
+    const container = document.createElement('div');
+    container.innerHTML = `
+    <div class="inline-form" id="callbackFormCard">
+        <h4>📞 Request a Callback</h4>
+        <div class="form-group"><label>Your Name *</label><input type="text" id="cfName" placeholder="First name is fine"></div>
+        <div class="form-group"><label>Phone Number *</label><input type="tel" id="cfPhone" placeholder="e.g. 021 123 4567"></div>
+        <div class="form-group"><label>Email (optional)</label><input type="email" id="cfEmail" placeholder="your@email.co.nz"></div>
+        <div class="form-group"><label>Best time to call</label><input type="text" id="cfExtra" placeholder="e.g. After 5pm, anytime"></div>
+        <button class="form-submit" id="cfSubmit" onclick="submitCallbackForm()">Submit →</button>
+    </div>`;
+    addMessage('assistant', null, container);
+    setTimeout(() => container.scrollIntoView({ behavior: 'smooth', block: 'end' }), 100);
+}
+
+window.submitCallbackForm = function() {
+    const btn = document.getElementById('cfSubmit');
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+
+    const name = document.getElementById('cfName').value.trim();
+    const phone = document.getElementById('cfPhone').value.trim();
+    const email = document.getElementById('cfEmail').value.trim();
+    const extra = document.getElementById('cfExtra').value.trim();
+
+    let hasError = false;
+    if (!name) { document.getElementById('cfName').parentElement.classList.add('error'); hasError = true; }
+    if (!phone) { document.getElementById('cfPhone').parentElement.classList.add('error'); hasError = true; }
+
+    if (hasError) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Submit →'; }
+        return;
+    }
+
+    const formCard = document.getElementById('callbackFormCard');
+    if (formCard) formCard.closest('.msg-row').remove();
+
+    const summary = `Callback request:\n• Name: ${name}\n• Phone: ${phone}${email ? '\n• Email: ' + email : ''}${extra ? '\n• Best time: ' + extra : ''}`;
+    addToHistory('user', summary);
+    addMessage('user', summary);
+
+    const formData = { name, phone, email, extra, type: 'callback' };
+    addToHistory('system', '', 'CALLBACK_SUBMITTED', formData);
+
+    // POST to chatbot log
+    fetch('https://n8n.arfquant.com/webhook-test/chatbotlog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestType: 'Talk to David', ...formData })
+    }).catch(() => {});
+
+    showConfirmation('📞', 'Callback Requested!', "David will give you a ring when he's free — usually within a few hours.");
+    processToWebhook();
+}
+
+// ── CONFIRMATION CARD ──
+window.showConfirmation = function(icon, title, text) {
+    const card = document.createElement('div');
+    card.className = 'inline-form';
+    card.style.textAlign = 'center';
+    card.style.background = 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)';
+    card.style.border = '1.5px solid #6EE7B7';
+    card.innerHTML = `
+        <div style="font-size:28px;margin-bottom:6px;">${icon}</div>
+        <div style="font-family:var(--font-heading);font-weight:800;font-size:0.95rem;color:#065F46;margin-bottom:4px;">${title}</div>
+        <div style="font-size:0.82rem;color:#047857;line-height:1.5;">${text}</div>
+    `;
+    addMessage('assistant', null, card);
 }
 
 window.submitQuote = function(btn) {
@@ -393,7 +627,7 @@ window.submitQuote = function(btn) {
         else { el.parentElement.classList.remove('error'); }
     });
     if (!valid) return;
-    btn.disabled = true; btn.innerText = "Submitting...";
+    btn.disabled = true; btn.textContent = "Submitting...";
     const addons = Array.from(form.querySelectorAll('.qAddon:checked')).map(cb => cb.value);
     const payloadData = {
         name: form.querySelector('#qName').value.trim(),
@@ -411,7 +645,7 @@ window.submitQuote = function(btn) {
     addToHistory('user', summaryStr);
     addMessage('user', summaryStr);
     processToWebhook();
-    btn.innerText = "Submitted!";
+    btn.textContent = "Submitted!";
 };
 
 window.submitGeneric = function(btn, eventName) {
@@ -429,7 +663,7 @@ window.submitGeneric = function(btn, eventName) {
         }
     });
     if (!valid) return;
-    btn.disabled = true; btn.innerText = "Submitted!";
+    btn.disabled = true; btn.textContent = "Submitted!";
     addToHistory('system', '', eventName, data);
     showSystemMsg('Form submitted securely.');
     const summaryStr = `I just sent through the ${eventName.replace('_', ' ').toLowerCase()} form.`;
@@ -448,10 +682,14 @@ window.initChat = function() {
         typeMessage(row, initMsg, () => {
             const qrBox = document.createElement('div');
             qrBox.className = 'quick-replies';
+            qrBox.id = 'quickReplies';
             qrBox.innerHTML = `
-                <button class="qr-btn" onclick="clickAction(this, 'Get a Quote', 'GET_QUOTE')">💰 Get a Quote</button>
-                <button class="qr-btn" onclick="clickAction(this, 'What services do you offer?', 'SERVICES')">🧹 What services do you offer?</button>
-                <button class="qr-btn" onclick="clickAction(this, 'What areas do you cover?', 'AREAS')">📍 What areas do you cover?</button>
+                <button class="qr-btn" onclick="handleQuickReply('get_quote')">💰 Get a Quote</button>
+                <button class="qr-btn" onclick="handleQuickReply('book')">📅 Book a Visit</button>
+                <button class="qr-btn" onclick="handleQuickReply('callback')">📞 Talk to David</button>
+                <button class="qr-btn" onclick="handleQuickReply('what_services')">🏠 What services?</button>
+                <button class="qr-btn" onclick="handleQuickReply('how_long')">⏱ How long?</button>
+                <button class="qr-btn" onclick="handleQuickReply('areas')">📍 What areas?</button>
             `;
             document.getElementById('chatBody').appendChild(qrBox);
             scrollToBottom();

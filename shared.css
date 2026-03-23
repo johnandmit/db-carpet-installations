@@ -1335,6 +1335,20 @@ img {
     }
 }
 
+@media (min-width: 1400px) {
+    .review-popup { width: 380px; padding: 18px 24px; }
+    .review-popup-name { font-size: 1.05rem; }
+    .review-popup-text { font-size: 0.95rem; }
+    .review-popup-stars { font-size: 0.95rem; }
+}
+
+@media (min-width: 1800px) {
+    .review-popup { width: 440px; padding: 22px 28px; }
+    .review-popup-name { font-size: 1.2rem; }
+    .review-popup-text { font-size: 1.05rem; }
+    .review-popup-stars { font-size: 1.1rem; }
+}
+
 @media (max-width: 768px) {
     .review-popup-container {
         bottom: 20px;
@@ -1351,4 +1365,7 @@ img {
         padding: 14px 18px;
         box-shadow: 0 8px 24px rgba(44, 24, 16, 0.15); /* Slightly stronger shadow for mobile visibility */
     }
+    .review-popup-name { font-size: 0.85rem; }
+    .review-popup-text { font-size: 0.8rem; }
+    .review-popup-stars { font-size: 0.8rem; }
 }

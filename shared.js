@@ -536,10 +536,12 @@ window.submitBookingForm = function() {
     addToHistory('system', '', 'BOOKING_SUBMITTED', formData);
 
     // POST to chatbot log
-    fetch('https://n8n.arfquant.com/webhook-test/chatbotlog', {
+    const timeLabelsLong = { morning: 'Morning (8am–12pm)', afternoon: 'Afternoon (12pm–4pm)', late_afternoon: 'Late Arvo (4pm–6pm)', flexible: 'Flexible' };
+    const bookNote = `Name: ${name}\nPhone: ${phone}${email ? '\nEmail: ' + email : ''}\nAddress: ${address}\nPreferred Date: ${date}\nPreferred Time: ${timeLabelsLong[time] || time}`;
+    fetch('https://n8n.arfquant.com/webhook/chatbotlog', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestType: 'Book a Visit', ...formData })
+        body: JSON.stringify({ requestType: 'Book a Visit', note: bookNote })
     }).catch(() => {});
 
     // Confirmation card
@@ -592,10 +594,11 @@ window.submitCallbackForm = function() {
     addToHistory('system', '', 'CALLBACK_SUBMITTED', formData);
 
     // POST to chatbot log
-    fetch('https://n8n.arfquant.com/webhook-test/chatbotlog', {
+    const cbNote = `Name: ${name}\nPhone: ${phone}${email ? '\nEmail: ' + email : ''}${extra ? '\nBest time to call: ' + extra : ''}`;
+    fetch('https://n8n.arfquant.com/webhook/chatbotlog', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestType: 'Talk to David', ...formData })
+        body: JSON.stringify({ requestType: 'Talk to David', note: cbNote })
     }).catch(() => {});
 
     showConfirmation('📞', 'Callback Requested!', "David will give you a ring when he's free — usually within a few hours.");
@@ -627,25 +630,67 @@ window.submitQuote = function(btn) {
         else { el.parentElement.classList.remove('error'); }
     });
     if (!valid) return;
-    btn.disabled = true; btn.textContent = "Submitting...";
+    btn.disabled = true; btn.textContent = "Calculating...";
     const addons = Array.from(form.querySelectorAll('.qAddon:checked')).map(cb => cb.value);
+    const rooms = parseInt(form.querySelector('#qRooms').value) || 1;
+    const sizes = form.querySelector('#qSizes').value;
+    const carpetType = form.querySelector('#qType').value;
+    const condition = form.querySelector('#qCond').value;
+
+    // ── Approximate pricing logic ──
+    const sizeMultiplier = { 'All small': 55, 'Mix of small and medium': 75, 'Mostly large': 100, 'Open plan': 130 };
+    const basePerRoom = sizeMultiplier[sizes] || 65;
+    let conditionMultiplier = 1;
+    if (condition === 'Moderate') conditionMultiplier = 1.15;
+    else if (condition === 'Heavy soiling') conditionMultiplier = 1.35;
+    else if (condition === 'Pet odour') conditionMultiplier = 1.4;
+    else if (condition === 'Flood damage') conditionMultiplier = 1.6;
+    if (carpetType === 'Wool') conditionMultiplier *= 1.15;
+    const addonPrices = { 'Stain treatment': 25, 'Deodorising': 20, 'Scotch guard': 30, 'Furniture moving': 15 };
+    let addonTotal = 0;
+    addons.forEach(a => { addonTotal += (addonPrices[a] || 0); });
+    const baseCost = Math.round(rooms * basePerRoom * conditionMultiplier + addonTotal);
+    const lowEst = Math.round(baseCost * 0.9);
+    const highEst = Math.round(baseCost * 1.15);
+
     const payloadData = {
         name: form.querySelector('#qName').value.trim(),
         phone: form.querySelector('#qPhone').value.trim(),
         address: form.querySelector('#qAddr').value.trim(),
-        rooms: parseInt(form.querySelector('#qRooms').value) || 1,
-        sizes: form.querySelector('#qSizes').value,
-        carpetType: form.querySelector('#qType').value,
-        condition: form.querySelector('#qCond').value,
-        addons: addons
+        rooms: rooms,
+        sizes: sizes,
+        carpetType: carpetType,
+        condition: condition,
+        addons: addons,
+        estimatedPriceLow: lowEst,
+        estimatedPriceHigh: highEst
     };
-    const summaryStr = `I submitted my details for a quote: ${payloadData.rooms} room(s) at ${payloadData.address}.`;
+
+    // POST to chatbotlog
+    fetch('https://n8n.arfquant.com/webhook-test/chatbotlog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestType: 'Get a Quote', ...payloadData })
+    }).catch(() => {});
+
     addToHistory('system', '', 'QUOTE_FORM_SUBMITTED', payloadData);
-    showSystemMsg('Quote requested securely.');
+    const summaryStr = `I submitted my details for a quote: ${rooms} room(s) at ${payloadData.address}.`;
     addToHistory('user', summaryStr);
     addMessage('user', summaryStr);
-    processToWebhook();
     btn.textContent = "Submitted!";
+
+    // Show pricing estimate
+    setTimeout(() => {
+        setTyping(true);
+        setTimeout(() => {
+            setTyping(false);
+            const priceMsg = `Based on your details, here's an approximate estimate:\n\n💰 $${lowEst} – $${highEst} NZD\n\n📋 ${rooms} room(s) · ${sizes}\n🧶 ${carpetType} carpet · ${condition}${addons.length ? '\n✅ ' + addons.join(', ') : ''}\n\nThis is a rough guide — David will follow up with an exact quote after inspecting your space! 📞`;
+            const row = addMessage('assistant', priceMsg);
+            typeMessage(row, priceMsg);
+            addToHistory('assistant', priceMsg);
+            scrollToBottom();
+        }, 1200);
+    }, 400);
 };
 
 window.submitGeneric = function(btn, eventName) {
@@ -684,9 +729,9 @@ window.initChat = function() {
             qrBox.className = 'quick-replies';
             qrBox.id = 'quickReplies';
             qrBox.innerHTML = `
-                <button class="qr-btn" onclick="handleQuickReply('get_quote')">💰 Get a Quote</button>
-                <button class="qr-btn" onclick="handleQuickReply('book')">📅 Book a Visit</button>
-                <button class="qr-btn" onclick="handleQuickReply('callback')">📞 Talk to David</button>
+                <button class="qr-btn primary" onclick="handleQuickReply('get_quote')">💰 Get a Quote</button>
+                <button class="qr-btn primary" onclick="handleQuickReply('book')">📅 Book a Visit</button>
+                <button class="qr-btn primary" onclick="handleQuickReply('callback')">📞 Talk to David</button>
                 <button class="qr-btn" onclick="handleQuickReply('what_services')">🏠 What services?</button>
                 <button class="qr-btn" onclick="handleQuickReply('how_long')">⏱ How long?</button>
                 <button class="qr-btn" onclick="handleQuickReply('areas')">📍 What areas?</button>

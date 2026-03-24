@@ -95,15 +95,15 @@ window.addEventListener('scroll', () => {
 // Review Popups Logic
 const realReviewsData = [
     { name: "Mike Mead", stars: "★★★★★", text: "\"The service was very prompt and friendly from start to finish, the workmanship was top quality, and the pricing was fair and transparent.\"" },
-    { name: "M Y", stars: "★★★★★", text: "\"The team arrived on time and got straight to work. The carpet repairs were completed with exemplary workmanship.\"" },
-    { name: "Lauren Bezuidenhout", stars: "★★★★★", text: "\"We had all our downstairs carpets replaced and the service was absolutely amazing! David was incredibly helpful throughout the whole process.\"" },
+    { name: "M. Yilmaz", stars: "★★★★★", text: "\"The team arrived on time and got straight to work. The carpet repairs were completed with exemplary workmanship.\"" },
+    { name: "Lauren B.", stars: "★★★★★", text: "\"We had all our downstairs carpets replaced and the service was absolutely amazing! David was incredibly helpful throughout the whole process.\"" },
     { name: "Mel Abbott", stars: "★★★★★", text: "\"I had a small job of putting a couple of corners of carpet back down. David was very helpful, fitted me in... Great to deal with.\"" },
     { name: "Candice", stars: "★★★★★", text: "\"David was fantastic! He handled everything himself and did an amazing job with the carpet. Super professional, friendly.\"" },
-    { name: "Jessica Broun", stars: "★★★★★", text: "\"David's communication was excellent throughout. He couldn’t have been more helpful, and the workmanship is excellent.\"" },
-    { name: "Angelique Kruger", stars: "★★★★★", text: "\"They have done an amazing job installing our carpets, so fast and efficient! Friendly and professional. They absolutely know their stuff!\"" },
+    { name: "Jessica Broun", stars: "★★★★★", text: "\"David's communication was excellent throughout. He couldn't have been more helpful, and the workmanship is excellent.\"" },
+    { name: "Angelique K.", stars: "★★★★★", text: "\"They have done an amazing job installing our carpets, so fast and efficient! Friendly and professional. They absolutely know their stuff!\"" },
     { name: "Kimberley Bell", stars: "★★★★★", text: "\"David did an awesome job of our carpet repair! Very reasonably priced, great communication, and appreciated his attention to detail.\"" },
-    { name: "MissChloe Kim", stars: "★★★★★", text: "\"I couldn’t be happier with the result and the price. His quote was unbelievably more affordable than the usual well known carpet companies.\"" },
-    { name: "David M", stars: "★★★★★", text: "\"David and his crew were extremely helpful and the quality of their work was exceptional. Their communication was fantastic too.\"" }
+    { name: "Chloe Kim", stars: "★★★★★", text: "\"I couldn't be happier with the result and the price. His quote was unbelievably more affordable than the usual well known carpet companies.\"" },
+    { name: "David M.", stars: "★★★★★", text: "\"David and his crew were extremely helpful and the quality of their work was exceptional. Their communication was fantastic too.\"" }
 ];
 
 function showReviewPopup() {
@@ -130,10 +130,21 @@ function showReviewPopup() {
         removePopup(oldestPopup);
     }
 
-    // Create new popup
-    const review = realReviewsData[Math.floor(Math.random() * realReviewsData.length)];
+    // Prevent duplicate reviews showing at the same time
+    const activePopups = container.querySelectorAll('.review-popup:not(.removing)');
+    const activeIndices = new Set();
+    activePopups.forEach(p => {
+        const idx = p.getAttribute('data-review-idx');
+        if (idx !== null) activeIndices.add(parseInt(idx));
+    });
+    const available = realReviewsData.map((_, i) => i).filter(i => !activeIndices.has(i));
+    if (available.length === 0) return;
+    const chosenIdx = available[Math.floor(Math.random() * available.length)];
+    const review = realReviewsData[chosenIdx];
+
     const popup = document.createElement('div');
     popup.className = 'review-popup';
+    popup.setAttribute('data-review-idx', chosenIdx);
     
     popup.innerHTML = `
         <div class="review-popup-header">

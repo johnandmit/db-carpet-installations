@@ -28,6 +28,70 @@ window.addEventListener('scroll', () => {
     }
 });
 
+/* ═══════════════ REVIEWS CAROUSEL JS ═══════════════ */
+(function() {
+    let carouselIndex = 0;
+    let autoPlayTimer;
+
+    function getPerPage() {
+        if (window.innerWidth <= 768) return 1;
+        if (window.innerWidth <= 1024) return 2;
+        return 3;
+    }
+
+    window.moveCarousel = function(dir) {
+        const track = document.getElementById('reviewTrack');
+        if (!track) return;
+        const cards = track.children;
+        const total = cards.length;
+        const perPage = getPerPage();
+        const maxIndex = total - perPage;
+        carouselIndex = Math.max(0, Math.min(carouselIndex + dir, maxIndex));
+        const cardWidth = 100 / perPage;
+        track.style.transform = `translateX(-${carouselIndex * cardWidth}%)`;
+        updateDots();
+        resetAutoPlay();
+    };
+
+    function updateDots() {
+        const dotsEl = document.getElementById('carouselDots');
+        const track = document.getElementById('reviewTrack');
+        if (!dotsEl || !track) return;
+        const total = track.children.length;
+        const perPage = getPerPage();
+        const dotCount = total - perPage + 1;
+        dotsEl.innerHTML = '';
+        for (let i = 0; i < dotCount; i++) {
+            const dot = document.createElement('button');
+            dot.className = 'carousel-dot' + (i === carouselIndex ? ' active' : '');
+            dot.onclick = () => { carouselIndex = i; moveCarousel(0); };
+            dotsEl.appendChild(dot);
+        }
+    }
+
+    function resetAutoPlay() {
+        clearInterval(autoPlayTimer);
+        autoPlayTimer = setInterval(() => {
+            const track = document.getElementById('reviewTrack');
+            if (!track) return;
+            const total = track.children.length;
+            const perPage = getPerPage();
+            carouselIndex = carouselIndex >= total - perPage ? 0 : carouselIndex + 1;
+            const cardWidth = 100 / perPage;
+            track.style.transform = `translateX(-${carouselIndex * cardWidth}%)`;
+            updateDots();
+        }, 5000);
+    }
+
+    // Init on load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => { updateDots(); resetAutoPlay(); });
+    } else {
+        updateDots(); resetAutoPlay();
+    }
+    window.addEventListener('resize', () => { carouselIndex = 0; moveCarousel(0); });
+})();
+
 // Review Popups Logic
 const realReviewsData = [
     { name: "Mike Mead", stars: "★★★★★", text: "\"The service was very prompt and friendly from start to finish, the workmanship was top quality, and the pricing was fair and transparent.\"" },
@@ -182,9 +246,9 @@ window.openChatQuote = function() {
     setTimeout(() => cv.classList.add('active'), 10);
     if (window.isFirstLoad) {
         window.isFirstLoad = false;
+        // Run welcome first, then auto-trigger quote after it finishes
+        window._autoQuoteAfterInit = true;
         initChat();
-        // Wait for welcome message to finish, then auto-click quote
-        setTimeout(() => handleQuickReply('get_quote'), 3500);
     } else {
         handleQuickReply('get_quote');
     }
@@ -274,8 +338,8 @@ window.handleQuickReply = function(action) {
     removeQuickReplies();
 
     if (action === 'get_quote') {
-        addToHistory('user', '💰 Get a Quote');
-        addMessage('user', '💰 Get a Quote');
+        addToHistory('user', 'Get a Quote');
+        addMessage('user', 'Get a Quote');
         addToHistory('system', '', 'USER_CLICKED_GET_QUOTE', {});
         setTyping(true);
         setTimeout(() => {
@@ -308,7 +372,7 @@ window.handleQuickReply = function(action) {
         setTyping(true);
         setTimeout(() => {
             setTyping(false);
-            const msg = "No worries! Leave your number below and David will give you a ring when he's free 📞";
+            const msg = "You can reach David directly on 0210 813 0758 📞\n\nOr leave your number below and he'll give you a ring when he's free!";
             addToHistory('assistant', msg);
             const row = addMessage('assistant', msg);
             typeMessage(row, msg, () => showCallbackForm());
@@ -652,16 +716,16 @@ window.submitQuote = function(btn) {
     const carpetType = form.querySelector('#qType').value;
     const condition = form.querySelector('#qCond').value;
 
-    // ── Approximate pricing logic ──
-    const sizeMultiplier = { 'All small': 55, 'Mix of small and medium': 75, 'Mostly large': 100, 'Open plan': 130 };
-    const basePerRoom = sizeMultiplier[sizes] || 65;
+    // ── Approximate pricing logic (NZ carpet installation rates) ──
+    const sizeMultiplier = { 'All small': 200, 'Mix of small and medium': 275, 'Mostly large': 350, 'Open plan': 450 };
+    const basePerRoom = sizeMultiplier[sizes] || 275;
     let conditionMultiplier = 1;
-    if (condition === 'Moderate') conditionMultiplier = 1.15;
-    else if (condition === 'Heavy soiling') conditionMultiplier = 1.35;
-    else if (condition === 'Pet odour') conditionMultiplier = 1.4;
-    else if (condition === 'Flood damage') conditionMultiplier = 1.6;
+    if (condition === 'Moderate') conditionMultiplier = 1.1;
+    else if (condition === 'Heavy soiling') conditionMultiplier = 1.2;
+    else if (condition === 'Pet odour') conditionMultiplier = 1.25;
+    else if (condition === 'Flood damage') conditionMultiplier = 1.4;
     if (carpetType === 'Wool') conditionMultiplier *= 1.15;
-    const addonPrices = { 'Stain treatment': 25, 'Deodorising': 20, 'Scotch guard': 30, 'Furniture moving': 15 };
+    const addonPrices = { 'Stain treatment': 50, 'Deodorising': 40, 'Scotch guard': 60, 'Furniture moving': 30 };
     let addonTotal = 0;
     addons.forEach(a => { addonTotal += (addonPrices[a] || 0); });
     const baseCost = Math.round(rooms * basePerRoom * conditionMultiplier + addonTotal);
@@ -740,19 +804,24 @@ window.initChat = function() {
         setTyping(false);
         const row = addMessage('assistant', initMsg);
         typeMessage(row, initMsg, () => {
-            const qrBox = document.createElement('div');
-            qrBox.className = 'quick-replies';
-            qrBox.id = 'quickReplies';
-            qrBox.innerHTML = `
-                <button class="qr-btn primary" onclick="handleQuickReply('get_quote')">💰 Get a Quote</button>
-                <button class="qr-btn primary" onclick="handleQuickReply('book')">📅 Book a Visit</button>
-                <button class="qr-btn primary" onclick="handleQuickReply('callback')">📞 Talk to David</button>
-                <button class="qr-btn" onclick="handleQuickReply('what_services')">🏠 What services?</button>
-                <button class="qr-btn" onclick="handleQuickReply('how_long')">⏱ How long?</button>
-                <button class="qr-btn" onclick="handleQuickReply('areas')">📍 What areas?</button>
-            `;
-            document.getElementById('chatBody').appendChild(qrBox);
-            scrollToBottom();
+            if (window._autoQuoteAfterInit) {
+                window._autoQuoteAfterInit = false;
+                handleQuickReply('get_quote');
+            } else {
+                const qrBox = document.createElement('div');
+                qrBox.className = 'quick-replies';
+                qrBox.id = 'quickReplies';
+                qrBox.innerHTML = `
+                    <button class="qr-btn primary" onclick="handleQuickReply('get_quote')">Get a Quote</button>
+                    <button class="qr-btn primary" onclick="handleQuickReply('book')">📅 Book a Visit</button>
+                    <button class="qr-btn primary" onclick="handleQuickReply('callback')">📞 Talk to David</button>
+                    <button class="qr-btn" onclick="handleQuickReply('what_services')">🏠 What services?</button>
+                    <button class="qr-btn" onclick="handleQuickReply('how_long')">⏱ How long?</button>
+                    <button class="qr-btn" onclick="handleQuickReply('areas')">📍 What areas?</button>
+                `;
+                document.getElementById('chatBody').appendChild(qrBox);
+                scrollToBottom();
+            }
         });
     }, 800);
 }

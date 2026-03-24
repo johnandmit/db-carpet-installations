@@ -110,7 +110,7 @@ setTimeout(() => {
 }, 2000);
 
 /* ═══════════════ AI CHAT WIDGET ═══════════════ */
-document.addEventListener('DOMContentLoaded', () => {
+(function() {
     document.body.insertAdjacentHTML('beforeend', `
         <!-- Floating Button -->
         <div id="chatBtn" onclick="openChat()">
@@ -150,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(e.target.parentElement.classList) e.target.parentElement.classList.remove('error');
         }
     });
-});
+})();
 
 window.webhookUrl = 'https://n8n.arfquant.com/webhook/dbcarpets';
 window.isDemoMode = false;

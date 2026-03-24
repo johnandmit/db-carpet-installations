@@ -353,13 +353,16 @@ img {
 
 /* ═══════════════ VALUES / WHY CHOOSE US ═══════════════ */
 .values-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    display: flex;
+    flex-wrap: nowrap;
     gap: 32px;
     max-width: 1100px;
     margin: 0 auto;
+    justify-content: center;
 }
 .value-card {
+    flex: 1;
+    min-width: 0;
     text-align: center;
     padding: 32px 24px;
     background: var(--color-white);
@@ -393,7 +396,7 @@ img {
     line-height: 1.6;
 }
 @media (max-width: 768px) {
-    .values-grid { grid-template-columns: 1fr; gap: 20px; }
+    .values-grid { flex-direction: column; gap: 20px; }
 }
 .content-block {
     max-width: 1100px;

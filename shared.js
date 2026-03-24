@@ -175,6 +175,21 @@ window.openChat = function() {
     if (window.isFirstLoad) { window.isFirstLoad = false; initChat(); }
 }
 
+window.openChatQuote = function() {
+    document.getElementById('chatBtn').style.display = 'none';
+    const cv = document.getElementById('chatView');
+    cv.style.display = 'flex';
+    setTimeout(() => cv.classList.add('active'), 10);
+    if (window.isFirstLoad) {
+        window.isFirstLoad = false;
+        initChat();
+        // Wait for welcome message to finish, then auto-click quote
+        setTimeout(() => handleQuickReply('get_quote'), 3500);
+    } else {
+        handleQuickReply('get_quote');
+    }
+}
+
 window.closeChat = function() {
     const cv = document.getElementById('chatView');
     cv.classList.remove('active');
